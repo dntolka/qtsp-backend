@@ -159,4 +159,4 @@ Signs hashes using ECDSA/SHA-256 with the credential's private key.
 
 - [CSC API v2.0 Specification](https://cloudsignatureconsortium.org/)
 - [EUDI Reference Implementation (Java)](https://github.com/eu-digital-identity-wallet/eudi-srv-web-walletdriven-rpcentric-signer-qtsp-java)
-- Internal docs: https://gitlab.grnet.gr/webuild/qtsp-docs
+
