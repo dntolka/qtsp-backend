@@ -7,6 +7,7 @@ import os
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.cache import cache
+from django.utils import timezone
 
 from cryptography.hazmat.primitives import hashes as crypto_hashes
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -32,7 +33,7 @@ def service_info(request):
         "lang": "en-US",
         "description": "GRNET Qualified Trust Service Provider",
         "authType": ["external"],
-        "oauth2": "http://localhost:8000",
+        "oauth2": CLIENT_ID,
         "methods": [
             "info",
             "credentials/list",
@@ -141,6 +142,58 @@ def sign_hash(request):
         "credentialID": credential_id,
         "signatures": signatures
     })
+
+
+@csrf_exempt
+def credentials_revoke(request):
+    """Revokes a credential by setting is_valid=False and recording the revocation time (CSC API v2 credentials/revoke)."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Use POST"}, status=400)
+
+    try:
+        body = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    credential_id = body.get("credentialID")
+    reason = body.get("reason", "")
+
+    if not credential_id:
+        return JsonResponse({"error": "Missing credentialID"}, status=400)
+
+    try:
+        credential = Credential.objects.get(credential_id=credential_id)
+    except Credential.DoesNotExist:
+        return JsonResponse({"error": "Unknown credentialID"}, status=404)
+
+    if not credential.is_valid:
+        return JsonResponse({"error": "Credential is already revoked"}, status=400)
+
+    credential.is_valid = False
+    credential.revoked_at = timezone.now()
+    credential.revocation_reason = reason
+    credential.save()
+
+    return JsonResponse({"status": "revoked", "credentialID": credential_id})
+
+
+@csrf_exempt
+def revocation_list(request):
+    """Returns a list of all revoked credentials with revocation time and reason."""
+    if request.method != "GET":
+        return JsonResponse({"error": "Use GET"}, status=400)
+
+    revoked = Credential.objects.filter(is_valid=False)
+    result = [
+        {
+            "credentialID": c.credential_id,
+            "revokedAt": c.revoked_at.isoformat() if c.revoked_at else None,
+            "reason": c.revocation_reason or "",
+        }
+        for c in revoked
+    ]
+
+    return JsonResponse({"revokedCredentials": result})
 
 
 @csrf_exempt

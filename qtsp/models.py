@@ -18,6 +18,8 @@ class Credential(models.Model):
     curve = models.CharField(max_length=50, default="P-256")
     is_valid = models.BooleanField(default=True)
     private_key_pem = models.TextField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revocation_reason = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return self.credential_id
